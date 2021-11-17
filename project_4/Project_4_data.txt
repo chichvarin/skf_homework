@@ -1,0 +1,69 @@
+WITH winter_anapa AS
+  (SELECT *
+   FROM dst_project.flights f
+   WHERE f.departure_airport = 'AAQ'
+     AND (date_trunc('month', scheduled_departure) in ('2017-01-01',
+                                                       '2017-02-01',
+                                                       '2017-12-01'))
+     AND f.status not in ('Cancelled')),
+     sales AS
+  (SELECT t.flight_id,
+          COUNT(t.ticket_no) sold_tickets,
+          SUM(t.amount) total_amount_tickets
+   FROM dst_project.ticket_flights t
+   GROUP BY t.flight_id),
+     fuel_consumption AS --per Ton/Minute
+
+  (SELECT a.aircraft_code,
+          '0.04'::decimal fuel_consumption
+   FROM dst_project.aircrafts a
+   WHERE a.aircraft_code = '733'
+   UNION SELECT a.aircraft_code,
+                '0.028'::decimal fuel_consumption
+   FROM dst_project.aircrafts a
+   WHERE a.aircraft_code = 'SU9'), flight_duration AS
+  (SELECT f.flight_id,
+          (EXTRACT(EPOCH
+                   FROM (f.actual_arrival - f.actual_departure)) / 60)::integer flight_duration
+   FROM dst_project.flights f),
+                                   fuel_price AS
+  (SELECT f.flight_id,
+          '41435'::integer fuel_price
+   FROM dst_project.flights f
+   WHERE date_trunc('month', f.scheduled_departure) in ('2017-01-01')
+   UNION SELECT f.flight_id,
+                '39553'::integer fuel_price
+   FROM dst_project.flights f
+   WHERE date_trunc('month', f.scheduled_departure) in ('2017-02-01')
+   UNION SELECT f.flight_id,
+                '44720'::integer fuel_price
+   FROM dst_project.flights f
+   WHERE date_trunc('month', f.scheduled_departure) in ('2017-12-01') ),
+                                   plane_occupancy AS
+  (SELECT s.aircraft_code,
+          count(s.seat_no) aircraft_capacity
+   FROM dst_project.seats s
+   GROUP BY 1)
+SELECT wa.flight_id,
+       wa.flight_no,
+       wa.scheduled_departure,
+       'Anapa' departure_city,
+               ap.city arrival_city,
+               wa.aircraft_code,
+               s.sold_tickets,
+               po.aircraft_capacity,
+               (po.aircraft_capacity - s.sold_tickets) unsold_places,
+               s.total_amount_tickets revenue,
+               (fd.flight_duration * fc.fuel_consumption * fp.fuel_price)::decimal costs,
+               s.total_amount_tickets - (fd.flight_duration * fc.fuel_consumption * fp.fuel_price) profit,
+               (s.total_amount_tickets - (fd.flight_duration * fc.fuel_consumption * fp.fuel_price)) / s.total_amount_tickets ros
+FROM winter_anapa wa
+JOIN sales s ON s.flight_id = wa.flight_id
+JOIN flight_duration fd ON fd.flight_id = wa.flight_id
+JOIN fuel_consumption fc ON fc.aircraft_code = wa.aircraft_code
+JOIN fuel_price fp ON fp.flight_id = wa.flight_id
+JOIN plane_occupancy po ON po.aircraft_code = wa.aircraft_code
+JOIN dst_project.airports ap ON ap.airport_code = wa.arrival_airport
+ORDER BY ros,
+         unsold_places DESC,
+         scheduled_departure

@@ -1,0 +1,130 @@
+/*Задание 4.1*/
+SELECT a.city,
+       count(a.airport_code) AS total_airports --подсчитаем количество кодов аэропорта для каждого города
+FROM dst_project.airports a
+GROUP BY 1
+ORDER BY total_airports DESC
+
+/*Задание 4.2*/
+SELECT count(DISTINCT f.status) --Вопрос 1
+FROM dst_project.flights f
+
+SELECT count(f.flight_id) --Вопрос 2
+FROM dst_project.flights f
+WHERE f.status = 'Departed'
+
+SELECT count(s.seat_no) --Вопрос 3
+FROM dst_project.seats s
+WHERE s.aircraft_code = '773'
+
+SELECT count(f.flight_id) --Вопрос 4
+FROM dst_project.flights f
+WHERE f.actual_arrival BETWEEN '2017-04-01' AND '2017-09-01'
+  AND (f.status = 'Arrived'
+       OR f.status = 'On Time')
+
+/*Задание 4.3*/
+SELECT count(f.flight_id) --Вопрос 1
+FROM dst_project.flights f
+WHERE f.status = 'Cancelled'
+
+SELECT 'Boeing' manufacturer, --Вопрос 2
+                count(a.model) plane_total
+FROM dst_project.aircrafts a
+WHERE a.model LIKE 'Boeing%'
+UNION
+SELECT 'Sukhoi Superjet' manufacturer,
+                         count(a.model) plane_total
+FROM dst_project.aircrafts a
+WHERE a.model LIKE 'Sukhoi Superjet%'
+UNION
+SELECT 'Airbus' manufacturer,
+                count(a.model) plane_total
+FROM dst_project.aircrafts a
+WHERE a.model LIKE 'Airbus%'
+
+SELECT 'Europe' world_part, --Вопрос 3
+ count(a.timezone) total
+FROM dst_project.airports a
+WHERE a.timezone like 'Europe%'
+UNION
+SELECT 'Asia' world_part,
+              count(a.timezone) total
+FROM dst_project.airports a
+WHERE a.timezone like 'Asia%'
+
+SELECT f.flight_id, --Вопрос 4
+       max(scheduled_arrival - actual_arrival) AS longest_arrival_delay
+FROM dst_project.flights f
+GROUP BY 1
+ORDER BY 2
+LIMIT 1
+
+/*Задание 4.4*/
+SELECT * --Вопрос 1
+FROM dst_project.flights f
+ORDER BY f.scheduled_departure DESC
+
+SELECT max(EXTRACT(EPOCH --Вопрос 2
+                   FROM (f.scheduled_arrival - f.scheduled_departure)) / 60)
+FROM dst_project.flights f
+
+SELECT f.arrival_airport, --Вопрос 3
+       f.departure_airport,
+       max(f.scheduled_arrival - f.scheduled_departure)
+FROM dst_project.flights f
+GROUP BY 1,
+         2
+ORDER BY 3 DESC
+
+SELECT avg(f.scheduled_arrival-f.scheduled_departure) --Вопрос 4
+from
+dst_project.flights f
+
+/*Задание 4.5*/
+SELECT s.fare_conditions, --Вопрос 1
+       count(s.seat_no)
+FROM dst_project.seats s
+WHERE s.aircraft_code = 'SU9'
+GROUP BY 1
+
+SELECT min(b.total_amount) --Вопрос 2
+FROM dst_project.bookings b
+
+SELECT b.seat_no --Вопрос 3
+FROM dst_project.tickets t
+JOIN dst_project.boarding_passes b ON t.ticket_no = b.ticket_no
+WHERE t.passenger_id = '4313 788533'
+
+/*Задание 5.1*/
+SELECT count(f.flight_id) --Вопрос 1
+FROM dst_project.flights f
+WHERE f.arrival_airport = 'AAQ'
+  AND (date_part('year', actual_arrival) = 2017)
+
+SELECT count(f.flight_id) --Вопрос 2
+FROM dst_project.flights f
+WHERE (departure_airport = 'AAQ')
+  AND (date_part('year', actual_departure) = 2017)
+  AND (date_part('month', actual_departure) in (12,1,2))
+
+SELECT count(f.flight_id) --Вопрос 3
+FROM dst_project.flights f
+WHERE f.departure_airport = 'AAQ'
+  AND f.status = 'Cancelled'
+
+SELECT count(f.flight_id) --Вопрос 4
+FROM dst_project.flights f
+LEFT JOIN dst_project.airports a ON f.arrival_airport = a.airport_code
+WHERE f.departure_airport = 'AAQ'
+  AND a.city <> 'Moscow'
+
+SELECT a.aircraft_code, --Вопрос 5
+       count(s.seat_no)
+FROM
+  (SELECT DISTINCT a.aircraft_code
+   FROM dst_project.flights f
+   JOIN dst_project.aircrafts a ON a.aircraft_code = f.aircraft_code
+   WHERE departure_airport = 'AAQ' ) a
+JOIN dst_project.seats s ON a.aircraft_code = s.aircraft_code
+GROUP BY a.aircraft_code
